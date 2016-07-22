@@ -23,6 +23,7 @@ import traceback
 
 description = """
 Red - A multifunction Discord bot by Twentysix
+Edited by Alvin On for personal and private use
 """
 
 formatter = commands.HelpFormatter(show_check_failure=False)

@@ -207,27 +207,20 @@ class VoidTrader:
 			await send_cmd_help(ctx)
 			return
 
-	# @voidtrader.command(name="update")
+	@voidtrader.command(name="update")
 	async def _trader_update(self):
 		"""Provides update on Baro Ki'Teer"""
-		await self.bot.say("Gathering Update Data, Please wait ...")
+		try:
+			await self.bot.say("Gathering Update Data, Please wait ...")
 
-		url = "https://deathsnacks.com/wf/"
-		async with aiohttp.get(url) as response:
-			so = BeautifulSoup(await response.text(), "html.parser")
-		info = so.find(id="vtaccordion").find_all(True)
-		print('\n')
-		print(info)
-		# info = so.find('a', attrs={'class': 'toggler-vt list-group-item'})
-		# info = info.find('span')
-		info = info.find_all('span')
-		print(info)
+			url = "http://warframe.wikia.com/wiki/Baro_Ki'Teer"
+			async with aiohttp.get(url) as response:
+				so = BeautifulSoup(await response.text(), "html.parser")
+			info = so.find('span', attrs={'data-toggle': '.post-countdown'}).find('span').get_text()
 
-		await self.bot.say("{0}: {1}".format(info[0].get_text().rstrip(),info[1].get_text().rstrip()))
-		# try:
-			
-		# except:
-		# 	await self.bot.say("Couldn't load item info")
+			await self.bot.say("Currently, the Void Trader is scheduled to arrive on {0}".format(info))
+		except:
+			await self.bot.say("Couldn't load item info")
 
 	@voidtrader.command(name="list")
 	async def _trader_list(self):
@@ -382,6 +375,8 @@ def setup(bot):
 	check_files()
 	if soupAvailable:
 		bot.add_cog(PrimeList(bot))
-		bot.add_cog(VoidTrader(bot))
+		vt = VoidTrader(bot)
+		bot.add_cog(vt)
+		# bot.add_listener(vt.saystuff, 'on_message')
 	else:
 		raise RuntimeError("You need to run `pip3 install beautifulsoup4`")
