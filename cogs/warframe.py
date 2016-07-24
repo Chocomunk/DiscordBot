@@ -51,9 +51,9 @@ class PrimeList:
 				await self.bot.say("Gathering Item Data, Please wait ...")
 
 				if server.id in self.filters:
-					filt = SearchFilter("".join(filter), self.filters[server.id])
+					filt = SearchFilter(" ".join(filter), self.filters[server.id])
 				else:
-					filt = SearchFilter("".join(filter), [])
+					filt = SearchFilter(" ".join(filter), [])
 
 				url = "http://warframe.wikia.com/wiki/Ducats/Prices"
 				async with aiohttp.get(url) as response:
@@ -215,9 +215,9 @@ class VoidTrader:
 				await self.bot.say("Gathering Item Data, Please wait ...")
 
 				if server.id in self.filters:
-					filt = SearchFilter("".join(filter), self.filters[server.id])
+					filt = SearchFilter(" ".join(filter), self.filters[server.id])
 				else:
-					filt = SearchFilter("".join(filter), [])
+					filt = SearchFilter(" ".join(filter), [])
 
 				url = "http://warframe.wikia.com/wiki/Baro_Ki'Teer/Trades"
 				async with aiohttp.get(url) as response:

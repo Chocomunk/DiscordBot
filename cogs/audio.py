@@ -955,7 +955,7 @@ class Audio:
 
         titles = []
         songs = []
-        filt = SearchFilter("".join(filter[0]), [])
+        filt = SearchFilter(" ".join(filter[0]), [])
         for i in range(len(playlist.titles)):
             if(filt.passes([playlist.titles[i]])):
                 titles.append(playlist.titles[i])
@@ -1503,7 +1503,7 @@ class Audio:
 
             self._save_playlist(server, name, playlist)
             await self.bot.say("Playlist '{}' saved. Tracks: {}".format(
-                name, len(songlist)))
+                name, len(songlist[0])))
         else:
             await self.bot.say("That URL is not a valid Soundcloud or YouTube"
                                " playlist link. If you think this is in error"
@@ -1648,6 +1648,29 @@ class Audio:
         """Plays and mixes a playlist."""
         await self.playlist_start.callback(self, ctx, name)
 
+    @playlist.command(pass_context=True, no_pm=True, name="show")
+    async def playlist_show(self, ctx, name):
+        """Lists songs in a playlist"""
+        server = ctx.message.server
+        author = ctx.message.author
+        if self._playlist_exists(server, name):
+            playlist = self._load_playlist(server, name,
+                                           local=self._playlist_exists_local(
+                                               server, name))
+            msg = "```Songs in {}:\n\n".format(name)
+            counter = 1
+            for s in playlist.titles:
+                if len(msg) + len(s) + 3 > 2000:
+                    await self.bot.say(msg)
+                    msg = "```\n"
+                msg += "  {0}. {1}\n".format(counter, s)
+                counter += 1
+            if len(msg) > 4:
+                msg += "```"
+                await self.bot.say(msg)
+        else:
+            await self.bot.say("{} is not a playlist on this server".format(name))
+
     @playlist.group(name="contained",pass_context=True)
     async def playlist_contained(self, ctx):
         """Options for songs in created playlists"""
@@ -1684,8 +1707,8 @@ class Audio:
         except InvalidPlaylist:
             await self.bot.say("Please use a valid playlist name")
 
-    @playlist_contained.command(pass_context=True, no_pm=True, name="play")
-    async def contained_play(self, ctx, name, *filter):
+    @playlist_contained.command(pass_context=True, no_pm=True, name="start")
+    async def contained_start(self, ctx, name, *filter):
         """Plays a search in a playlist"""
         server = ctx.message.server
         author = ctx.message.author
@@ -1720,8 +1743,44 @@ class Audio:
         songlist = self._search_playlist(ctx, name, filter)
         playlist = Playlist(author=author, playlist=songlist[1], titles=songlist[0])
 
+        if caller == "contained_start_mix":
+                shuffle(playlist.playlist)
+
         self._play_playlist(server, playlist)
         await self.bot.say("Playlist queued.")
+
+    @playlist_contained.command(pass_context=True, no_pm=True, name="mix")
+    async def contained_start_mix(self, ctx, name, *filter):
+        """Plays the search shuffled"""
+        await self.contained_start.callback(self, ctx, name)
+
+    @playlist_contained.command(pass_context=True, no_pm=True, name="create")
+    async def contained_create(self, ctx, name, parent_name, *filter):
+        """Creates a playlist from a search"""
+        server = ctx.message.server
+        author = ctx.message.author
+        if not self._valid_playlist_name(name) or len(name) > 25:
+            await self.bot.say("That playlist name is invalid. It must only"
+                               " contain alpha-numeric characters or _.")
+            return
+
+        try:
+            await self.bot.say("Enumerating song list... This could take"
+                               " a few moments.")
+            songlist = self._search_playlist(ctx, parent_name, filter)
+        except InvalidPlaylist:
+            await self.bot.say("Parent name: '{}' is invalid".format(parent_name))
+            return
+
+        playlist = self._make_playlist(author, None, songlist)
+        # Returns a Playlist object
+
+        playlist.name = name
+        playlist.server = server
+
+        self._save_playlist(server, name, playlist)
+        await self.bot.say("Playlist '{}' saved. Tracks: {}".format(
+            name, len(songlist[0])))
 
     @commands.command(pass_context=True, no_pm=True, name="queue")
     async def _queue(self, ctx, *, url=None):
