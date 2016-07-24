@@ -335,9 +335,6 @@ def setup(bot):
 	check_folder()
 	check_files()
 	if soupAvailable:
-		bot.add_cog(PrimeList(bot))
-		vt = VoidTrader(bot)
-		bot.add_cog(vt)
-		# bot.add_listener(vt.saystuff, 'on_message')
+		bot.add_cog(Warframe(bot))
 	else:
 		raise RuntimeError("You need to run `pip3 install beautifulsoup4`")
