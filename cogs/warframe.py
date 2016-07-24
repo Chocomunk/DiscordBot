@@ -11,12 +11,13 @@ except:
 	soupAvailable = False
 import aiohttp
 
-class PrimeList:
-	"""Provides information on prime items"""
+class Warframe:
+	"""Warframe utility module"""
 
 	def __init__(self, bot):
 		self.bot = bot
-		self.filters = fileIO("data/warframe/prime_filters.json", "load")
+		self.prime_filters = fileIO("data/warframe/prime_filters.json", "load")
+		self.trader_filters = fileIO("data/warframe/trader_filters.json", "load")
 
 	@commands.group(name="prime", pass_context=True)
 	async def prime(self, ctx):
@@ -34,7 +35,7 @@ class PrimeList:
 			url = "http://warframe.wikia.com/wiki/Ducats/Prices"
 			async with aiohttp.get(url) as response:
 				so = BeautifulSoup(await response.text(), "html.parser")
-			for s in self._parse_table(SearchFilter("",[]), so):
+			for s in self._parse_prime_table(SearchFilter("",[]), so):
 				await self.bot.say(s)
 		except:
 			await self.bot.say("Couldn't load item info")
@@ -50,15 +51,15 @@ class PrimeList:
 			try:
 				await self.bot.say("Gathering Item Data, Please wait ...")
 
-				if server.id in self.filters:
-					filt = SearchFilter(" ".join(filter), self.filters[server.id])
+				if server.id in self.prime_filters:
+					filt = SearchFilter(" ".join(filter), self.prime_filters[server.id])
 				else:
 					filt = SearchFilter(" ".join(filter), [])
 
 				url = "http://warframe.wikia.com/wiki/Ducats/Prices"
 				async with aiohttp.get(url) as response:
 					so = BeautifulSoup(await response.text(), "html.parser")
-				for s in self._parse_table(filt, so):
+				for s in self._parse_prime_table(filt, so):
 					await self.bot.say(s)
 			except:
 				await self.bot.say("Couldn't load item info")
@@ -81,34 +82,34 @@ class PrimeList:
 	async def _prime_filter_add(self, ctx, filter: str, *to_search):
 		"""Adds a custom filter"""
 		server = ctx.message.server
-		if server.id not in self.filters:
-			self.filters[server.id] = {}
-		if filter not in self.filters[server.id]:
+		if server.id not in self.prime_filters:
+			self.prime_filters[server.id] = {}
+		if filter not in self.prime_filters[server.id]:
 			val = "".join(to_search)
-			self.filters[server.id][filter] = val
-			fileIO("data/warframe/prime_filters.json", "save", self.filters)
+			self.prime_filters[server.id][filter] = val
+			fileIO("data/warframe/prime_filters.json", "save", self.prime_filters)
 			await self.bot.say("Custom filter '{0}' added."
 							   "It will correspond to the filter: '{1}'".format(filter, val))
 		else:
 			await self.bot.say("'{0}' already exists as a custom filter."
-							   "'{0}' filters for: '{1}'".format(filter,self.filters[server.id][filter]))
+							   "'{0}' filters for: '{1}'".format(filter,self.prime_filters[server.id][filter]))
 
 	@prime_filters.command(name="del", pass_context=True)
 	async def _prime_filter_del(self, ctx, filter: str):
 		"""Deletes a custom filter"""
 		server = ctx.message.server
-		if server.id in self.filters:
-			self.filters[server.id].pop(filter, None)
-			fileIO("data/warframe/prime_filters.json", "save", self.filters)
+		if server.id in self.prime_filters:
+			self.prime_filters[server.id].pop(filter, None)
+			fileIO("data/warframe/prime_filters.json", "save", self.prime_filters)
 		await self.bot.say("Deleted custom filter '{0}'".format(filter))
 
 	@prime_filters.command(name="show", pass_context=True)
 	async def _prime_filter_show(self, ctx, filter: str):
 		"""Shows the what [filter] filters"""
 		server = ctx.message.server
-		if server.id in self.filters:
-			if filter in self.filters[server.id]:
-				await self.bot.say("'{0}' filters for '{1}".format(filter,self.filters[server.id][filter]))
+		if server.id in self.prime_filters:
+			if filter in self.prime_filters[server.id]:
+				await self.bot.say("'{0}' filters for '{1}".format(filter,self.prime_filters[server.id][filter]))
 			else:
 				await self.bot.say("Custom filter '{0}' does not exist on this server".format(filter))
 
@@ -116,14 +117,14 @@ class PrimeList:
 	async def _prime_filter_list(self, ctx):
 		"""Lists all custom filters"""
 		server = ctx.message.server
-		if server.id in self.filters:
-			if len(self.filters[server.id]) > 0:
+		if server.id in self.prime_filters:
+			if len(self.prime_filters[server.id]) > 0:
 				message = "```Custom Filter list:\n"
-				for f in sorted(self.filters[server.id]):
+				for f in sorted(self.prime_filters[server.id]):
 					if len(message) + len(f) + 3 > 2000:
 						await self.bot.say(message)
 						message = "```\n"
-					message += "\t{0:<15s}\t=\t{1:<}\n".format(f, self.filters[server.id][f])
+					message += "\t{0:<15s}\t=\t{1:<}\n".format(f, self.prime_filters[server.id][f])
 				if len(message) > 4:
 					message += "```"
 					await self.bot.say(message)
@@ -131,41 +132,6 @@ class PrimeList:
 				await self.bot.say("This server does not have any filters")
 		else:
 			await self.bot.say("This server does not have any filters")
-
-	def _parse_table(self, filter, so):
-		rows = so.find(id="mw-customcollapsible-ducatsprices").find('table').find_all('tr')
-		set = []
-		msg = "```{:^25s}|{:^35s}|{:^2s}|{:^5s}\n".format("PART","DROP LOCATION","BP","CRAFT")
-		del rows[0]
-		for row in rows:
-			cells = row.find_all('td')
-			descriptors = cells[0].find_all('a')
-			name = descriptors[1].get_text().rstrip()
-			lcs = cells[1].get_text(separator='\n').splitlines()
-			location = lcs[0]
-			del lcs[0]
-			for l in lcs:
-				location += ", " + l
-			blueprint_value = (cells[2].get_text().rstrip()[:2]).replace("N/","NA")
-			crafted_value = (cells[3].get_text().rstrip()[:2]).replace("N/","NA")
-
-			if filter.passes([name,location,blueprint_value,crafted_value]):
-				tmp = "{0:^25s}|{1:^35s}|{2:^2s}|{3:^5s}".format(name, location, blueprint_value, crafted_value)
-				if len(msg) + len(tmp) + 3 > 2000:
-					set.append(msg + "```")
-					msg = "```\n"
-				msg += tmp + "\n"
-		if len(msg) > 4:
-			msg += "```"
-			set.append(msg)
-		return set
-			
-class VoidTrader:
-	"""Provides information on Baro Ki'Teer"""
-
-	def __init__(self, bot):
-		self.bot = bot
-		self.filters = fileIO("data/warframe/trader_filters.json", "load")
 
 	@commands.group(name="voidtrader", pass_context="True")
 	async def voidtrader(self, ctx):
@@ -198,7 +164,7 @@ class VoidTrader:
 			url = "http://warframe.wikia.com/wiki/Baro_Ki'Teer/Trades"
 			async with aiohttp.get(url) as response:
 				so = BeautifulSoup(await response.text(), "html.parser")
-			for s in self._parse_table(SearchFilter("",[]), so):
+			for s in self._parse_trader_table(SearchFilter("",[]), so):
 				await self.bot.say(s)
 		except:
 			await self.bot.say("Couldn't load item info")
@@ -214,15 +180,15 @@ class VoidTrader:
 			try:
 				await self.bot.say("Gathering Item Data, Please wait ...")
 
-				if server.id in self.filters:
-					filt = SearchFilter(" ".join(filter), self.filters[server.id])
+				if server.id in self.trader_filters:
+					filt = SearchFilter(" ".join(filter), self.trader_filters[server.id])
 				else:
 					filt = SearchFilter(" ".join(filter), [])
 
 				url = "http://warframe.wikia.com/wiki/Baro_Ki'Teer/Trades"
 				async with aiohttp.get(url) as response:
 					so = BeautifulSoup(await response.text(), "html.parser")
-				for s in self._parse_table(filt, so):
+				for s in self._parse_trader_table(filt, so):
 					await self.bot.say(s)
 			except:
 				await self.bot.say("Couldn't load item info")
@@ -245,34 +211,34 @@ class VoidTrader:
 	async def _trader_filter_add(self, ctx, filter: str, *to_search):
 		"""Adds a custom filter"""
 		server = ctx.message.server
-		if server.id not in self.filters:
-			self.filters[server.id] = {}
-		if filter not in self.filters[server.id]:
+		if server.id not in self.trader_filters:
+			self.trader_filters[server.id] = {}
+		if filter not in self.trader_filters[server.id]:
 			val = "".join(to_search)
-			self.filters[server.id][filter] = val
-			fileIO("data/warframe/trader_filters.json", "save", self.filters)
+			self.trader_filters[server.id][filter] = val
+			fileIO("data/warframe/trader_filters.json", "save", self.trader_filters)
 			await self.bot.say("Custom filter '{0}' added."
 							   "It will correspond to the filter: '{1}'".format(filter, val))
 		else:
 			await self.bot.say("'{0}' already exists as a custom filter."
-							   "'{0}' filters for: '{1}'".format(filter,self.filters[server.id][filter]))
+							   "'{0}' filters for: '{1}'".format(filter,self.trader_filters[server.id][filter]))
 
 	@trader_filters.command(name="del", pass_context=True)
 	async def _trader_filter_del(self, ctx, filter: str):
 		"""Deletes a custom filter"""
 		server = ctx.message.server
-		if server.id in self.filters:
-			self.filters[server.id].pop(filter, None)
-			fileIO("data/warframe/trader_filters.json", "save", self.filters)
+		if server.id in self.trader_filters:
+			self.trader_filters[server.id].pop(filter, None)
+			fileIO("data/warframe/trader_filters.json", "save", self.trader_filters)
 		await self.bot.say("Deleted custom filter '{0}'".format(filter))
 
 	@trader_filters.command(name="show", pass_context=True)
 	async def _trader_filter_show(self, ctx, filter: str):
 		"""Shows the what [filter] filters"""
 		server = ctx.message.server
-		if server.id in self.filters:
-			if filter in self.filters[server.id]:
-				await self.bot.say("'{0}' filters for '{1}".format(filter,self.filters[server.id][filter]))
+		if server.id in self.trader_filters:
+			if filter in self.trader_filters[server.id]:
+				await self.bot.say("'{0}' filters for '{1}".format(filter,self.trader_filters[server.id][filter]))
 			else:
 				await self.bot.say("Custom filter '{0}' does not exist on this server".format(filter))
 
@@ -280,14 +246,14 @@ class VoidTrader:
 	async def _trader_filter_list(self, ctx):
 		"""Lists all custom filters"""
 		server = ctx.message.server
-		if server.id in self.filters:
-			if len(self.filters[server.id]) > 0:
+		if server.id in self.trader_filters:
+			if len(self.trader_filters[server.id]) > 0:
 				message = "```Custom Filter list:\n"
-				for f in sorted(self.filters[server.id]):
+				for f in sorted(self.trader_filters[server.id]):
 					if len(message) + len(f) + 3 > 2000:
 						await self.bot.say(message)
 						message = "```\n"
-					message += "\t{0:<15s}\t=\t{1:<}\n".format(f, self.filters[server.id][f])
+					message += "\t{0:<15s}\t=\t{1:<}\n".format(f, self.trader_filters[server.id][f])
 				if len(message) > 4:
 					message += "```"
 					await self.bot.say(message)
@@ -296,7 +262,35 @@ class VoidTrader:
 		else:
 			await self.bot.say("This server does not have any filters")
 
-	def _parse_table(self, filter, so):
+	def _parse_prime_table(self, filter, so):
+		rows = so.find(id="mw-customcollapsible-ducatsprices").find('table').find_all('tr')
+		set = []
+		msg = "```{:^25s}|{:^35s}|{:^2s}|{:^5s}\n".format("PART","DROP LOCATION","BP","CRAFT")
+		del rows[0]
+		for row in rows:
+			cells = row.find_all('td')
+			descriptors = cells[0].find_all('a')
+			name = descriptors[1].get_text().rstrip()
+			lcs = cells[1].get_text(separator='\n').splitlines()
+			location = lcs[0]
+			del lcs[0]
+			for l in lcs:
+				location += ", " + l
+			blueprint_value = (cells[2].get_text().rstrip()[:2]).replace("N/","NA")
+			crafted_value = (cells[3].get_text().rstrip()[:2]).replace("N/","NA")
+
+			if filter.passes([name,location,blueprint_value,crafted_value]):
+				tmp = "{0:^25s}|{1:^35s}|{2:^2s}|{3:^5s}".format(name, location, blueprint_value, crafted_value)
+				if len(msg) + len(tmp) + 3 > 2000:
+					set.append(msg + "```")
+					msg = "```\n"
+				msg += tmp + "\n"
+		if len(msg) > 4:
+			msg += "```"
+			set.append(msg)
+		return set
+
+	def _parse_trader_table(self, filter, so):
 		rows = so.find(id="mw-customcollapsible-itemsale").find('table').find_all('tr')
 		set = []
 		msg = "```{:^40s}|{:^10s}|{:^8s}\n".format("ITEM","CREDITS","DUCATS")
