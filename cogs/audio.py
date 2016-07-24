@@ -5,6 +5,7 @@ import os
 from random import shuffle, choice
 from cogs.utils.dataIO import fileIO
 from cogs.utils import checks
+from cogs.utils.search_filter import SearchFilter
 from __main__ import send_cmd_help
 import re
 import logging
@@ -125,7 +126,7 @@ class Song:
 
 class Playlist:
     def __init__(self, server=None, sid=None, name=None, author=None, url=None,
-                 playlist=None, path=None, main_class=None, **kwargs):
+                 playlist=None, path=None, main_class=None, titles=None, **kwargs):
         self.server = server
         self._sid = sid
         self.name = name
@@ -137,6 +138,7 @@ class Playlist:
         if url is None and "link" in kwargs:
             self.url = kwargs.get('link')
         self.playlist = playlist
+        self.titles = titles
 
     @property
     def filename(self):
@@ -146,15 +148,23 @@ class Playlist:
 
     def to_json(self):
         ret = {"author": self.author, "playlist": self.playlist,
-               "link": self.url}
+               "titles": self.titles, "link": self.url}
         return ret
 
-    def append_song(self, author, url):
+    async def append_song(self, author, url):
         if author.id != self.author:
             raise UnauthorizedSave
         elif not self.main_class._valid_playable_url(url):
             raise InvalidURL
         else:
+            d = Downloader(url)
+            d.start()
+            playlist = {}
+
+            while d.is_alive():
+                await asyncio.sleep(0.5)
+
+            self.titles.append(d.song.title)
             self.playlist.append(url)
             self.save()
 
@@ -636,7 +646,7 @@ class Audio:
         except:
             pass
 
-        return Playlist(author=author, url=url, playlist=songlist)
+        return Playlist(author=author, url=url, playlist=songlist[1], titles=songlist[0])
 
     def _match_sc_playlist(self, url):
         return self._match_sc_url(url)
@@ -697,6 +707,7 @@ class Audio:
         d = Downloader(url)
         d.start()
         playlist = []
+        titles = []
 
         while d.is_alive():
             await asyncio.sleep(0.5)
@@ -705,6 +716,7 @@ class Audio:
             try:
                 song_url = "https://www.youtube.com/watch?v={}".format(
                     entry['id'])
+                titles.append(entry['title'])
                 playlist.append(song_url)
             except AttributeError:
                 pass
@@ -713,7 +725,7 @@ class Audio:
 
         log.debug("song list:\n\t{}".format(playlist))
 
-        return playlist
+        return (titles,playlist)
 
     async def _play(self, sid, url):
         """Returns the song object of what's playing"""
@@ -849,6 +861,24 @@ class Audio:
 
     def _shuffle_temp_queue(self, server):
         shuffle(self.queue[server.id]["TEMP_QUEUE"])
+
+    def _search_playlist(self, ctx, name, *filter):
+        author = ctx.message.author
+        server = ctx.message.server
+        if name not in self._list_playlists(server):
+            raise InvalidPlaylist
+            return
+        playlist = self._load_playlist(
+            server, name, local=self._playlist_exists_local(server, name))
+
+        titles = []
+        songs = []
+        filt = SearchFilter("".join(filter[0]), [])
+        for i in range(len(playlist.titles)):
+            if(filt.passes([playlist.titles[i]])):
+                titles.append(playlist.titles[i])
+                songs.append(playlist.playlist[i])
+        return (titles,songs)
 
     def _server_count(self):
         return max([1, len(self.bot.servers)])
@@ -1322,7 +1352,7 @@ class Audio:
         playlist = self._load_playlist(
             server, name, local=self._playlist_exists_local(server, name))
         try:
-            playlist.append_song(author, url)
+            await playlist.append_song(author, url)
         except UnauthorizedSave:
             await self.bot.say("You're not the author of that playlist.")
         except InvalidURL:
@@ -1432,6 +1462,81 @@ class Audio:
     async def playlist_start_mix(self, ctx, name):
         """Plays and mixes a playlist."""
         await self.playlist_start.callback(self, ctx, name)
+
+    @playlist.group(name="contained",pass_context=True)
+    async def playlist_contained(self, ctx):
+        """Options for songs in created playlists"""
+        if ctx.invoked_subcommand is None:
+            await send_cmd_help(ctx)
+            return
+        else:
+            sub_cm = ctx.invoked_subcommand.name
+            if ctx.command.name in sub_cm:
+                sub_cm = sub_cm.strip(ctx.command.name)
+            if sub_cm is "":
+                await send_cmd_help(ctx)
+                return
+
+    @playlist_contained.command(pass_context=True, no_pm=True, name="search")
+    async def contained_search(self, ctx, name, *filter):
+        """Searches a playlist and returns the result"""
+        try:
+            songlist = self._search_playlist(ctx, name, filter)
+            if(len(songlist[0]) > 0):
+                msg = "```Songs:\n"
+                count = 0
+                for s in songlist[0]:
+                    if len(msg) + len(s) + 3 > 2000:
+                        await self.bot.say(msg)
+                        msg = "```\n"
+                    msg += "\t[{0}]: {1}\n".format(count, s)
+                    count += 1
+                if len(msg) > 4:
+                    msg += "```"
+                    await self.bot.say(msg)
+            else:
+                await self.bot.say("No results found")
+        except InvalidPlaylist:
+            await self.bot.say("Please use a valid playlist name")
+
+    @playlist_contained.command(pass_context=True, no_pm=True, name="play")
+    async def contained_play(self, ctx, name, *filter):
+        """Plays a search in a playlist"""
+        server = ctx.message.server
+        author = ctx.message.author
+        voice_channel = ctx.message.author.voice_channel
+
+        caller = inspect.currentframe().f_back.f_code.co_name
+
+        if voice_channel is None:
+            await self.bot.say("You must be in a voice channel to start a"
+                               " playlist.")
+            return
+
+        if not self.voice_connected(server):
+            try:
+                self.has_connect_perm(author, server)
+            except AuthorNotConnected:
+                await self.bot.say("You must join a voice channel before"
+                                   " I can play anything.")
+                return
+            except UnauthorizedConnect:
+                await self.bot.say("I don't have permissions to join your"
+                                   " voice channel.")
+                return
+            except UnauthorizedSpeak:
+                await self.bot.say("I don't have permissions to speak in"
+                                   " your voice channel.")
+                return
+            else:
+                await self._join_voice_channel(voice_channel)
+        self._clear_queue(server)
+
+        songlist = self._search_playlist(ctx, name, filter)
+        playlist = Playlist(author=author, playlist=songlist[1], titles=songlist[0])
+
+        self._play_playlist(server, playlist)
+        await self.bot.say("Playlist queued.")
 
     @commands.command(pass_context=True, no_pm=True, name="queue")
     async def _queue(self, ctx, *, url=None):

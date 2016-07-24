@@ -1,7 +1,7 @@
-import re
 import os
 from __main__ import send_cmd_help
 from .utils.dataIO import fileIO
+from .utils.search_filter import SearchFilter
 import discord
 from discord.ext import commands
 try: # check if BeautifulSoup4 is installed
@@ -10,39 +10,6 @@ try: # check if BeautifulSoup4 is installed
 except:
 	soupAvailable = False
 import aiohttp
-
-class SearchFilter:
-	
-	def __init__(self, expression: str, custom_filters):
-		self.expr = expression
-		s_clear = False
-		while(not s_clear):
-			for f in custom_filters:
-				self.expr = self.expr.replace(f, custom_filters[f])
-			s_clear = True
-			for f in custom_filters:
-				s_clear = s_clear & (f not in self.expr)
-
-		self.filters = [i.rstrip().lstrip() for i in re.split('[()&|!]', self.expr) if i.strip()!='']
-		for i in self.filters:
-			self.expr = self.expr.replace(i, "{:}")
-		self.expr = self.expr.strip()
-		self.expr = self.expr.replace('!{:}', '( not {:})')
-				
-	def passes(self, inp: list):
-		if(self.expr == ""):
-			return True
-		else:
-			comp = []
-			for f in self.filters:
-				res = False
-				for i in inp:
-					res = res or (f.lower() in i.lower())
-					if res:
-						break
-				comp.append(res)
-			result = eval(self.expr.format(*comp))
-			return result
 
 class PrimeList:
 	"""Provides information on prime items"""
@@ -68,8 +35,7 @@ class PrimeList:
 			async with aiohttp.get(url) as response:
 				so = BeautifulSoup(await response.text(), "html.parser")
 			for s in self._parse_table(SearchFilter("",[]), so):
-				output = "```" + "\n".join(s) + "```"
-				await self.bot.say(output)
+				await self.bot.say(s)
 		except:
 			await self.bot.say("Couldn't load item info")
 
@@ -93,8 +59,7 @@ class PrimeList:
 				async with aiohttp.get(url) as response:
 					so = BeautifulSoup(await response.text(), "html.parser")
 				for s in self._parse_table(filt, so):
-					output = "```" + "\n".join(s) + "```"
-					await self.bot.say(output)
+					await self.bot.say(s)
 			except:
 				await self.bot.say("Couldn't load item info")
 
@@ -170,8 +135,7 @@ class PrimeList:
 	def _parse_table(self, filter, so):
 		rows = so.find(id="mw-customcollapsible-ducatsprices").find('table').find_all('tr')
 		set = []
-		set.append(["{:^25s}|{:^35s}|{:^2s}|{:^5s}".format("PART","DROP LOCATION","BP","CRAFT")])
-		temp = []
+		msg = "```{:^25s}|{:^35s}|{:^2s}|{:^5s}\n".format("PART","DROP LOCATION","BP","CRAFT")
 		del rows[0]
 		for row in rows:
 			cells = row.find_all('td')
@@ -186,11 +150,14 @@ class PrimeList:
 			crafted_value = (cells[3].get_text().rstrip()[:2]).replace("N/","NA")
 
 			if filter.passes([name,location,blueprint_value,crafted_value]):
-				if len(temp) == 20:
-					set.append(list(temp))
-					temp = []
-				temp.append("{:^25s}|{:^35s}|{:^2s}|{:^5s}".format(name, location, blueprint_value, crafted_value))
-		set.append(list(temp))
+				tmp = "{0:^25s}|{1:^35s}|{2:^2s}|{3:^5s}".format(name, location, blueprint_value, crafted_value)
+				if len(msg) + len(tmp) + 3 > 2000:
+					set.append(msg + "```")
+					msg = "```\n"
+				msg += tmp + "\n"
+		if len(msg) > 4:
+			msg += "```"
+			set.append(msg)
 		return set
 			
 class VoidTrader:
@@ -232,8 +199,7 @@ class VoidTrader:
 			async with aiohttp.get(url) as response:
 				so = BeautifulSoup(await response.text(), "html.parser")
 			for s in self._parse_table(SearchFilter("",[]), so):
-				output = "```" + "\n".join(s) + "```"
-				await self.bot.say(output)
+				await self.bot.say(s)
 		except:
 			await self.bot.say("Couldn't load item info")
 
@@ -257,8 +223,7 @@ class VoidTrader:
 				async with aiohttp.get(url) as response:
 					so = BeautifulSoup(await response.text(), "html.parser")
 				for s in self._parse_table(filt, so):
-					output = "```" + "\n".join(s) + "```"
-					await self.bot.say(output)
+					await self.bot.say(s)
 			except:
 				await self.bot.say("Couldn't load item info")
 
@@ -334,8 +299,7 @@ class VoidTrader:
 	def _parse_table(self, filter, so):
 		rows = so.find(id="mw-customcollapsible-itemsale").find('table').find_all('tr')
 		set = []
-		set.append(["{:^40s}|{:^10s}|{:^8s}".format("ITEM","CREDITS","DUCATS")])
-		temp = []
+		msg = "```{:^40s}|{:^10s}|{:^8s}\n".format("ITEM","CREDITS","DUCATS")
 		del rows[0]
 		for row in rows:
 			cells = row.find_all('td')
@@ -347,11 +311,14 @@ class VoidTrader:
 			ducats = "D"+prices[1].get_text().rstrip()
 
 			if filter.passes([name,credits,ducats]):
-				if len(temp) == 20:
-					set.append(list(temp))
-					temp = []
-				temp.append("{:^40s}|{:^10s}|{:^8s}".format(name, credits, ducats))
-		set.append(list(temp))
+				tmp = "{:^40s}|{:^10s}|{:^8s}".format(name, credits, ducats)
+				if len(msg) + len (tmp) + 3 > 2000:
+					set.append(msg + "```")
+					msg = "```\n"
+				msg += tmp + "\n"
+		if len(msg) > 4:
+			msg += "```"
+			set.append(msg)
 		return set
 
 def check_folder():
