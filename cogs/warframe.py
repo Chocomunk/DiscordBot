@@ -1,7 +1,7 @@
 import os
 from __main__ import send_cmd_help
 from .utils.dataIO import fileIO
-from .utils.search_filter import SearchFilter
+from .utils.search_filter import *
 import discord
 from discord.ext import commands
 try: # check if BeautifulSoup4 is installed
@@ -65,7 +65,7 @@ class Warframe:
 				await self.bot.say("Couldn't load item info")
 
 	@prime.group(name="filters", pass_context=True)
-	async def prime_filters(self, ctx):
+	async def prime_filters(ctx):
 		"""Options for Search Filters"""
 		if ctx.invoked_subcommand is None:
 			await send_cmd_help(ctx)
@@ -84,8 +84,11 @@ class Warframe:
 		server = ctx.message.server
 		if server.id not in self.prime_filters:
 			self.prime_filters[server.id] = {}
+		if filter == " ".join(to_search):
+			await self.bot.say("Custom filter name cannot be the same as the filter")
+			return
 		if filter not in self.prime_filters[server.id]:
-			val = "".join(to_search)
+			val = " ".join(to_search)
 			self.prime_filters[server.id][filter] = val
 			fileIO("data/warframe/prime_filters.json", "save", self.prime_filters)
 			await self.bot.say("Custom filter '{0}' added."
@@ -194,7 +197,7 @@ class Warframe:
 				await self.bot.say("Couldn't load item info")
 
 	@voidtrader.group(name="filters", pass_context=True)
-	async def trader_filters(self, ctx):
+	async def trader_filters(ctx):
 		"""Options for Search Filters"""
 		if ctx.invoked_subcommand is None:
 			await send_cmd_help(ctx)
@@ -213,8 +216,11 @@ class Warframe:
 		server = ctx.message.server
 		if server.id not in self.trader_filters:
 			self.trader_filters[server.id] = {}
+		if filter == " ".join(to_search):
+			await self.bot.say("Custom filter name cannot be the same as the filter")
+			return
 		if filter not in self.trader_filters[server.id]:
-			val = "".join(to_search)
+			val = " ".join(to_search)
 			self.trader_filters[server.id][filter] = val
 			fileIO("data/warframe/trader_filters.json", "save", self.trader_filters)
 			await self.bot.say("Custom filter '{0}' added."
@@ -279,7 +285,7 @@ class Warframe:
 			blueprint_value = (cells[2].get_text().rstrip()[:2]).replace("N/","NA")
 			crafted_value = (cells[3].get_text().rstrip()[:2]).replace("N/","NA")
 
-			if filter.passes([name,location,blueprint_value,crafted_value]):
+			if filter.passes({'part|name|item': name,'drop location': location,'blueprint|bp': blueprint_value,'crafted value': crafted_value}):
 				tmp = "{0:^25s}|{1:^35s}|{2:^2s}|{3:^5s}".format(name, location, blueprint_value, crafted_value)
 				if len(msg) + len(tmp) + 3 > 2000:
 					set.append(msg + "```")
@@ -304,7 +310,7 @@ class Warframe:
 			credits = "C"+prices[0].get_text().rstrip()
 			ducats = "D"+prices[1].get_text().rstrip()
 
-			if filter.passes([name,credits,ducats]):
+			if filter.passes({'part|name|item': name,'credits': credits,'ducats': ducats}):
 				tmp = "{:^40s}|{:^10s}|{:^8s}".format(name, credits, ducats)
 				if len(msg) + len (tmp) + 3 > 2000:
 					set.append(msg + "```")
