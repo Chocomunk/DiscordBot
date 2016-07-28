@@ -1624,7 +1624,7 @@ class Audio:
                     await self._join_voice_channel(voice_channel)
             self._clear_queue(server)
 
-            songlist = self._search_playlist(server, name, filter)
+            songlist = await self._search_playlist(server, name, filter)
             playlist = Playlist(author=author, playlist=songlist[1])
 
             if caller == "contained_start_mix":
@@ -1653,7 +1653,7 @@ class Audio:
 
             await self.bot.say("Enumerating song list... This could take"
                                    " a few moments.")
-            songlist = self._search_playlist(ctx, parent_name, filter)
+            songlist = await self._search_playlist(ctx, parent_name, filter)
             playlist = self._make_playlist(author, None, songlist[1])
             # Returns a Playlist object
 
