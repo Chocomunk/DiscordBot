@@ -1590,6 +1590,138 @@ class Audio:
         else:
             await self.bot.say("{} is not a playlist".format(name))
 
+    @playlist_contained.command(pass_context=True, no_pm=True, name="play")
+    async def contained_play(self, ctx, name, index, *filter):
+        """Plays the song of the index of the search"""
+        server = ctx.message.server
+        author = ctx.message.author
+        voice_channel = author.voice_channel
+
+        if name not in self._list_playlists(server):
+            await self.bot.say("{} is not a playlist".format(name))
+            return
+
+        try:
+            i = int(index)
+            assert i>=0
+        except ValueError:
+            await self.bot.say('"{}" is not a valid index'.format(index))
+            return
+        except AssertionError:
+            await self.bot.say("Index must be larger than or equal to 0")
+            return
+
+        if not self.voice_connected(server):
+            try:
+                self.has_connect_perm(author, server)
+            except AuthorNotConnected:
+                await self.bot.say("You must join a voice channel before I can"
+                                   " play anything.")
+                return
+            except UnauthorizedConnect:
+                await self.bot.say("I don't have permissions to join your"
+                                   " voice channel.")
+                return
+            except UnauthorizedSpeak:
+                await self.bot.say("I don't have permissions to speak in your"
+                                   " voice channel.")
+                return
+            else:
+                await self._join_voice_channel(voice_channel)
+        else:  # We are connected but not to the right channel
+            if self.voice_client(server).channel != voice_channel:
+                await self._stop_and_disconnect(server)
+                await self._join_voice_channel(voice_channel)
+
+        await self.bot.say("Gathering information...")
+        songlist = await self._search_playlist(server, name, filter)
+        if i >= len(songlist[1]):
+            await self.bot.say('Index "{0}" is out of bounds of the search set, which has a length of "{1}"'.format(index, len(songlist[1])))
+        else:
+            url = songlist[1][i]
+
+        if self.is_playing(server):
+            await ctx.invoke(self._queue, url=url)
+            return  # Default to queue
+
+        self._stop_player(server)
+        self._clear_queue(server)
+        self._add_to_queue(server, url)
+
+    @playlist_contained.command(pass_context=True, no_pm=True, name="queue")
+    async def contained_queue(self, ctx, name, index, *filter):
+        """Queues the song of the index of the search
+
+        Searching with the index must be without whitespace,
+        while the filter search does not need to be free of
+        whitespace
+        """
+        server = ctx.message.server
+
+        try:
+            indices = []
+            searches = []
+
+            if '&' in index:
+                searches = [i for i in index.split('&')]
+            else:
+                searches.append(index)
+
+            for s in searches:
+                if s.count(':') > 1:
+                    raise ValueError
+                for i in s.split(':'):
+                    if i.strip() != '':
+                        assert int(i) >= 0
+                indices.append(s)
+            del searches
+        except ValueError:
+            await self.bot.say('"{}" is not a valid index or index search'.format(index))
+            return
+        except AssertionError:
+            await self.bot.say("Indices must be larger than or equal to 0")
+            return
+
+        # We are connected somewhere
+        if server.id not in self.queue:
+            log.debug("Something went wrong, we're connected but have no"
+                      " queue entry.")
+            raise VoiceNotConnected("Something went wrong, we have no internal"
+                                    " queue to modify. This should never"
+                                    " happen.")
+
+        await self.bot.say("Gathering information...")
+        songlist = await self._search_playlist(server, name, filter)
+
+        urls = []
+        for i in indices:
+            try:
+                searches = eval('songlist[1][{0}]'.format(i))
+                for s in searches:
+                    urls.append(s)
+            except IndexError:
+                await self.bot.say('Invalid index "{0}" for search size of {1}, exempting search from queue'.format(i,len(songlist[1])))
+                continue
+            except:
+                await self.bot.say('Error slicing "{0}" for search size of {1}, exempting search from queue'.format(i,len(songlist[1])))
+                continue
+
+        for url in urls:
+            if not self.voice_connected(server):
+                await ctx.invoke(self.play, url_or_search_terms=url)
+                return
+
+            # We have a queue to modify
+            if self.queue[server.id]["PLAYLIST"]:
+                log.debug("queueing to the temp_queue for sid {}".format(
+                    server.id))
+                self._add_to_temp_queue(server, url)
+            else:
+                log.debug("queueing to the actual queue for sid {}".format(
+                    server.id))
+                self._add_to_queue(server, url)
+        await self.bot.say("Queued {0} tracks.".format(len(urls)))
+
     @playlist_contained.command(pass_context=True, no_pm=True, name="start")
     async def contained_start(self, ctx, name, *filter):
         """Plays a search in a playlist"""
