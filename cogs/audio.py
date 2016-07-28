@@ -1809,6 +1809,8 @@ class Audio:
                     await self._join_voice_channel(voice_channel)
             self._clear_queue(server)
 
+            await self.bot.say("Gathering information... ")
+
             songlist = await self._search_playlist(server, name, filter)
             playlist = Playlist(author=author, playlist=songlist[1])
 
