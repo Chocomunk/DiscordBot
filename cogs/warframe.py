@@ -269,7 +269,15 @@ class Warframe:
 			await self.bot.say("This server does not have any filters")
 
 	def _parse_prime_table(self, filter, so):
-		rows = so.find(id="mw-customcollapsible-ducatsprices").find('table').find_all('tr')
+		rows = so.find(id="mw-customcollapsible-ducatsprices").find_all('table')
+		if len(rows[0].find_all('tr')) < 2:
+			if len(rows[1].find_all('tr')) < 2:
+				return
+			rows = rows[1]
+		else:
+			rows = rows[0]
+		rows = rows.find_all('tr')
+
 		set = []
 		msg = "```{:^25s}|{:^35s}|{:^2s}|{:^5s}\n".format("PART","DROP LOCATION","BP","CRAFT")
 		del rows[0]
@@ -297,7 +305,15 @@ class Warframe:
 		return set
 
 	def _parse_trader_table(self, filter, so):
-		rows = so.find(id="mw-customcollapsible-itemsale").find('table').find_all('tr')
+		rows = so.find(id="mw-customcollapsible-itemsale").find_all('table')
+		if len(rows[0].find_all('tr')) < 2:
+			if len(rows[1].find_all('tr')) < 2:
+				return
+			rows = rows[1]
+		else:
+			rows = rows[0]
+		rows = rows.find_all('tr')
+
 		set = []
 		msg = "```{:^40s}|{:^10s}|{:^8s}\n".format("ITEM","CREDITS","DUCATS")
 		del rows[0]
