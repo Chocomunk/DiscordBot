@@ -1862,14 +1862,6 @@ class Audio:
             await self.bot.say("Indices must be larger than or equal to 0")
             return
 
-        # We are connected somewhere
-        if server.id not in self.queue:
-            log.debug("Something went wrong, we're connected but have no"
-                      " queue entry.")
-            raise VoiceNotConnected("Something went wrong, we have no internal"
-                                    " queue to modify. This should never"
-                                    " happen.")
-
         await self.bot.say("Gathering information...")
         songlist = await self._search_playlist(server, name, filter)
 
@@ -1891,6 +1883,14 @@ class Audio:
                 await ctx.invoke(self.play, url_or_search_terms=url)
                 return
 
+            # We are connected somewhere
+            if server.id not in self.queue:
+                log.debug("Something went wrong, we're connected but have no"
+                          " queue entry.")
+                raise VoiceNotConnected("Something went wrong, we have no internal"
+                                        " queue to modify. This should never"
+                                        " happen.")
+            
             # We have a queue to modify
             if self.queue[server.id]["PLAYLIST"]:
                 log.debug("queueing to the temp_queue for sid {}".format(
