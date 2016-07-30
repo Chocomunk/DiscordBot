@@ -200,10 +200,10 @@ class Warframe:
 			cells = item.find_all('div')
 
 			name = cells[4].get_text().rstrip()
-			credits = "C"+cells[1].get_text().rstrip()
-			ducats = "D"+cells[2].get_text().rstrip()
+			credits = "C"+cells[2].get_text().rstrip()
+			ducats = "D"+cells[1].get_text().rstrip()
 
-			tmp = "{:^40s}|\t{:20s}".format(name, credits+" + "+ducats)
+			tmp = "{:^40s}|\t{:20s}".format(name, ducats+" + "+credits)
 			if len(msg) + len (tmp) + 3 > 2000:
 				out.append(msg + "```")
 				msg = "```\n"
