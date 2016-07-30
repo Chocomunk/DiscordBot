@@ -5,7 +5,7 @@ from .utils.search_filter import *
 import discord
 from discord.ext import commands
 try: # check if BeautifulSoup4 is installed
-	from bs4 import BeautifulSoup
+	from bs4 import BeautifulSoup, NavigableString, Tag
 	soupAvailable = True
 except:
 	soupAvailable = False
@@ -144,19 +144,75 @@ class Warframe:
 			return
 
 	@voidtrader.command(name="update")
-	async def _trader_update(self):
+	async def _trader_update(self, *, platform=None):
 		"""Provides update on Baro Ki'Teer"""
+		await self.bot.say("Gathering Update Data, Please wait ...")
+
+		url = "http://warframe.wikia.com/wiki/Baro_Ki'Teer"
+		async with aiohttp.get(url) as response:
+			so = BeautifulSoup(await response.text(), "html.parser")
+
 		try:
-			await self.bot.say("Gathering Update Data, Please wait ...")
+			arrival = so.find('span', attrs={'class':'post-countdown'})
+			if len(arrival.find_all('a')) > 0:
+				if platform is None:
+						await self.bot.say(self._trader_update_date(arrival))
+				else:
+					filt = SearchFilter(platform.lower().strip(), [])
+					table = so.find_all('div', attrs={'style': 'width:100%;text-align:center;'})
 
-			url = "http://warframe.wikia.com/wiki/Baro_Ki'Teer"
-			async with aiohttp.get(url) as response:
-				so = BeautifulSoup(await response.text(), "html.parser")
-			info = so.find('span', attrs={'data-toggle': '.post-countdown'}).find('span').get_text()
+					msg = []
+					if filt.passes({"arg": "pc|desktop|computer"}):
+						msg = self._trader_update_items(table[0].find_all('div', attrs={'style':"position:relative; background: radial-gradient(#3F565D, #0F181B); "
+																								"border:1px solid white; height:120px; width:168px; display:inline-block;"
+																								"margin-bottom:4px;text-align:center;vertical-align:top;font-family:'Roboto';"}))
+					if filt.passes({"arg": "ps4|play station|four|xb1|xbox 1|xbox1|console"}):
+						msg = self._trader_update_items(table[1].find_all('div', attrs={'style':"position:relative; background: radial-gradient(#3F565D, #0F181B); "
+																								"border:1px solid white; height:120px; width:168px; display:inline-block;"
+																								"margin-bottom:4px;text-align:center;vertical-align:top;font-family:'Roboto';"}))
 
-			await self.bot.say("Currently, the Void Trader is scheduled to arrive on {0}".format(info))
+					for s in msg:
+						await self.bot.say(s)
+			else:
+				date = so.find(attrs={'data-toggle': '.post-countdown'}).find('span').get_text()
+				return "Currently, the Void Trader is scheduled to arrive on {0}".format(info)
 		except:
-			await self.bot.say("Couldn't load item info")
+			await self.bot.say("Couldn't load trader info")
+
+	def _trader_update_date(self, arrival):
+		msg = "```The Void Trader has surfaced at:\n"
+
+		for br in arrival.findAll('br'):
+			next = br.nextSibling
+			if not next and not (isinstance(next,Tag) and next.name == 'br'):
+				continue
+			text = "\t{0} {1} {2}\n".format(str(next).strip(), next.nextSibling.get_text().strip(), str(next.nextSibling.nextSibling).strip())
+			if text:
+				msg += text
+
+		return msg+"```"
+
+	def _trader_update_items(self, table):
+		out = []
+		msg = "```{:^40s}|{:^20s}\n".format("ITEM","COST")
+
+		for item in table:
+			cells = item.find_all('div')
+
+			name = cells[4].get_text().rstrip()
+			credits = "C"+cells[1].get_text().rstrip()
+			ducats = "D"+cells[2].get_text().rstrip()
+
+			tmp = "{:^40s}|\t{:20s}".format(name, credits+" + "+ducats)
+			if len(msg) + len (tmp) + 3 > 2000:
+				out.append(msg + "```")
+				msg = "```\n"
+			msg += tmp + "\n"
+		#
+		if len(msg) > 4:
+			msg += "```"
+			out.append(msg)
+		return out
 
 	@voidtrader.command(name="list")
 	async def _trader_list(self):

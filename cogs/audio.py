@@ -1662,20 +1662,15 @@ class Audio:
                                                server, name))
             d = Downloader(playlist.url)
             d.start()
-            # _yt = youtube_dl.YoutubeDL(youtube_dl_options)
             msg = "```Songs in {}:\n\n".format(name)
             counter = 1
 
             while d.is_alive():
                 await asyncio.sleep(0.5)
-            # print(*d.song.entries)
+
             for entry in d.song.entries:
-            # for entry in playlist.playlist:
                 try:
                     s = entry['title']
-                    # song = await self._guarantee_downloaded(server, entry)
-                    # song = Song(**_yt.extract_info(entry, download=False, process=False))
-                    # s = song.title
                     if len(msg) + len(s) + 3 > 1900:
                         await self.bot.say(msg + "```")
                         msg = "```\n"
