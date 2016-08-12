@@ -335,7 +335,7 @@ class Warframe:
 		rows = rows.find_all('tr')
 
 		set = []
-		msg = "```{:^25s}|{:^35s}|{:^2s}|{:^5s}\n".format("PART","DROP LOCATION","BP","CRAFT")
+		msg = "```{:^25s}|{:^35s}|{:^3s}|{:^5s}\n".format("PART","DROP LOCATION","BP","CRAFT")
 		del rows[0]
 		for row in rows:
 			cells = row.find_all('td')
@@ -346,11 +346,11 @@ class Warframe:
 			del lcs[0]
 			for l in lcs:
 				location += ", " + l
-			blueprint_value = (cells[2].get_text().rstrip()[:2]).replace("N/","NA")
-			crafted_value = (cells[3].get_text().rstrip()[:2]).replace("N/","NA")
+			blueprint_value = (cells[2].get_text().rstrip()[:3])
+			crafted_value = (cells[3].get_text().rstrip()[:3])
 
 			if filter.passes({'part|name|item': name,'drop location': location,'blueprint|bp': blueprint_value,'crafted value': crafted_value}):
-				tmp = "{0:^25s}|{1:^35s}|{2:^2s}|{3:^5s}".format(name, location, blueprint_value, crafted_value)
+				tmp = "{0:^25s}|{1:^35s}|{2:^3s}|{3:^5s}".format(name, location, blueprint_value, crafted_value)
 				if len(msg) + len(tmp) + 3 > 2000:
 					set.append(msg + "```")
 					msg = "```\n"
