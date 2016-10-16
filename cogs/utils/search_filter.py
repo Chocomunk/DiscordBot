@@ -7,15 +7,15 @@ class InvalidSearch(Exception):
 
 class InvalidParenthesis(InvalidSearch):
 	def __init__(self, str):
-		InvalidCategorySearch.__init__(self, str, complaint="Invalid Parenthesis")
+		InvalidSearch.__init__(self, str, complaint="Invalid Parenthesis")
 
 class InvalidCategorySearchStructure(InvalidSearch):
 	def __init__(self, str):
-		InvalidCategorySearch.__init__(self, str, complaint="Invalid Category Search Structure")
+		InvalidSearch.__init__(self, str, complaint="Invalid Category Search Structure")
 
 class InvalidIsolatorStructure(InvalidSearch):
 	def __init__(self, str):
-		InvalidCategorySearch.__init__(self, str, complaint="Invalid Isolator Structure")
+		InvalidSearch.__init__(self, str, complaint="Invalid Isolator Structure")
 
 class SearchFilter:
 	

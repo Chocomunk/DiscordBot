@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import os
 from random import shuffle, choice
 from cogs.utils.dataIO import fileIO
@@ -203,6 +204,89 @@ class ContainedPlaylist:
                 songs.append(song.webpage_url)
                 
         return (titles,songs)
+
+class CachedThreadPoolExecutor(ThreadPoolExecutor):
+    def __init__(self):
+        super(CachedThreadPoolExecutor, self).__init__(max_workers=1)
+
+    def submit(self, fn, *args, **extra):
+        if self._work_queue.qsize() > 0:
+            print('increasing pool size from %d to %d' % (self._max_workers, self._max_workers+1))
+            self._max_workers +=1
+
+        return super(CachedThreadPoolExecutor, self).submit(fn, *args, **extra)
+
+class Searcher(threading.Thread):
+    def __init__(self, pool, filter, aliases, search_set: list, base_size=100, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.search_set = search_set
+        self.size = base_size
+        self.filter = filter
+        self.pool = pool
+        self.done = threading.Event()
+        self.aliases = aliases
+        self.output_titles = []
+        self.output_songs = []
+        self.children = []
+        self.init_size = len(search_set)
+        self.searched = 0
+
+    def run(self):
+        print("starting run:\n")
+        search_res = self.search(self.search_set)
+        print("\nfinished run")
+        self.output_titles = search_res[0]
+        self.output_songs = search_res[1]
+        self.done.set()
+
+
+    def search(self, search_set):
+        titles = []
+        songs = []
+        if len(search_set) <= self. size:
+            filt = SearchFilter(" ".join(self.filter), self.aliases)
+
+            for entry in search_set:
+                if(filt.passes({'title|song|name': entry['title']})):
+                    titles.append(entry['title'])
+                    songs.append("https://www.youtube.com/watch?v={}".format(entry['id']))
+        else:
+            t_count = int(math.sqrt(len(search_set)))
+            i = 0
+            while i < t_count-1:
+                self.children.append(self.pool.submit(self.search, search_set[i*t_count:(i+1)*t_count]))
+                i+=1
+            self.children.append(self.pool.submit(self.search, search_set[(t_count-1)*t_count:len(search_set)]))
+            print("Adding Children")
+            for i in range(len(self.children)):
+                c = self.children[i]
+                titles = titles + c.result()[0]
+                songs = songs + c.result()[1]
+                print(titles)
+                # self.searched += 1
+                # if self.searched >= self.init_size-1:
+                #     break
+            print("Finished")
+        return (titles,songs)
+
+    # async def _search_playlist(self, server, name, filter):
+    #     playlist = self._load_playlist(
+    #         server, name, local=self._playlist_exists_local(server, name))
+
+    #     d = Downloader(playlist.url)
+    #     d.start()
+
+    #     while d.is_alive():
+    #         await asyncio.sleep(0.5)
+
+    #     titles = []
+    #     songs = []
+    #     filt = SearchFilter(" ".join(filter), self.playlist_filter[server.id])
+
+    #     for entry in d.song.entries:
+    #         if(filt.passes({'title|song|name': entry['title']})):
+    #             titles.append(entry['title'])
+    #             songs.append("https://www.youtube.com/watch?v={}".format(entry['id']))
 
 class Downloader(threading.Thread):
     def __init__(self, url, max_duration=None, download=False,
@@ -1519,22 +1603,26 @@ class Audio:
         playlist = self._load_playlist(
             server, name, local=self._playlist_exists_local(server, name))
 
+        print("starting download")
         d = Downloader(playlist.url)
         d.start()
 
         while d.is_alive():
             await asyncio.sleep(0.5)
+        print("finished download")
 
-        titles = []
-        songs = []
-        filt = SearchFilter(" ".join(filter), self.playlist_filter[server.id])
+        s = Searcher(CachedThreadPoolExecutor(), filter, self.playlist_filter[server.id], list(d.song.entries))
+        s.start()
 
-        for entry in d.song.entries:
-            if(filt.passes({'title|song|name': entry['title']})):
-                titles.append(entry['title'])
-                songs.append("https://www.youtube.com/watch?v={}".format(entry['id']))
+        while s.is_alive():
+            await asyncio.sleep(0.5)
+
+        # for entry in d.song.entries:
+        #     if(filt.passes({'title|song|name': entry['title']})):
+        #         titles.append(entry['title'])
+        #         songs.append("https://www.youtube.com/watch?v={}".format(entry['id']))
                 
-        return (titles,songs)
+        return (s.output_titles,s.output_songs)
     # @playlist_contained.command(name="load", pass_context=True)
     # async def contained_load(self, ctx, name):
     #     """Loads a playlist for applying commands"""
@@ -1679,6 +1767,7 @@ class Audio:
 
         await self.bot.say("Gathering information...")
         songlist = await self._search_playlist(server, name, filter)
+        print("song list enumerated")
 
         urls = []
         for i in indices:
