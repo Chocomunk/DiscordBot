@@ -238,6 +238,7 @@ class Searcher(threading.Thread):
         self.output_titles = search_res[0]
         self.output_songs = search_res[1]
         self.done.set()
+        print([i for i in self.output_titles])
 
 
     def search(self, search_set):
