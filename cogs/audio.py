@@ -238,7 +238,7 @@ class Searcher(threading.Thread):
     def search(self, search_set):
         titles = []
         songs = []
-        if len(search_set) <= self. size:
+        if len(search_set) <= self.size:
             filt = SearchFilter(" ".join(self.filter), self.aliases)
 
             for entry in search_set:
@@ -246,16 +246,21 @@ class Searcher(threading.Thread):
                     titles.append(entry['title'])
                     songs.append("https://www.youtube.com/watch?v={}".format(entry['id']))
         else:
-            t_count = int(math.sqrt(len(search_set)))
+            # t_count = int(math.sqrt(len(search_set)))
+            # set_size = t_count
+            t_count = int(len(search_set)/self.size)
+            set_size = int(self.size)
             i = 0
-            while i < t_count-1:
-                self.children.append(self.pool.submit(self.search, search_set[i*t_count:(i+1)*t_count]))
+            while i < t_count:
+                self.children.append(self.pool.submit(self.search, search_set[i*set_size:(i+1)*set_size]))
+                print("Searching1: {0} to {1}".format(i*set_size,(i+1)*set_size))
                 i+=1
-            self.children.append(self.pool.submit(self.search, search_set[(t_count-1)*t_count:len(search_set)]))
+            self.children.append(self.pool.submit(self.search, search_set[i*set_size:len(search_set)]))
+            print("Searching2: {0} to {1}\n".format(i*set_size,len(search_set)))
             for i in range(len(self.children)):
-                c = self.children[i]
-                titles = titles + c.result()[0]
-                songs = songs + c.result()[1]
+                c_res = self.children[i].result()
+                titles = titles + c_res[0]
+                songs = songs + c_res[1]
                 # self.searched += 1
                 # if self.searched >= self.init_size-1:
                 #     break
@@ -1606,8 +1611,10 @@ class Audio:
         s = Searcher(CachedThreadPoolExecutor(), filter, self.playlist_filter[server.id], list(d.song.entries))
         s.start()
 
+        print("starting search")
         while s.is_alive():
             await asyncio.sleep(0.5)
+        print("finished search\n")
 
         # for entry in d.song.entries:
         #     if(filt.passes({'title|song|name': entry['title']})):
@@ -1648,6 +1655,7 @@ class Audio:
             await self.bot.say("Gathering information... ")
 
             songlist = await self._search_playlist(server, name, filter)
+            print("Song search list enumerated")
             if(len(songlist[0]) > 0):
                 msg = "```Songs:\n"
                 count = 0
