@@ -1,3 +1,3 @@
 chcp 65001
-python red.py
+python3 red.py
 pause
