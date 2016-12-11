@@ -239,9 +239,6 @@ class ContainedPlaylist:
                     song['uploader'] = None
 
                 self.songs.append(song)
-            else:
-                print(video)
-        print("done")
 
     async def search(self, filter):
         titles = []
@@ -282,13 +279,10 @@ class Searcher(threading.Thread):
         self.searched = 0
 
     def run(self):
-        print("starting run:\n")
         search_res = self.search(self.search_set)
-        print("\nfinished run")
         self.output_titles = search_res[0]
         self.output_songs = search_res[1]
         self.done.set()
-        print([i for i in self.output_titles])
 
 
     def search(self, search_set):
@@ -308,16 +302,13 @@ class Searcher(threading.Thread):
                 self.children.append(self.pool.submit(self.search, search_set[i*t_count:(i+1)*t_count]))
                 i+=1
             self.children.append(self.pool.submit(self.search, search_set[(t_count-1)*t_count:len(search_set)]))
-            print("Adding Children")
             for i in range(len(self.children)):
                 c = self.children[i]
                 titles = titles + c.result()[0]
                 songs = songs + c.result()[1]
-                print(titles)
                 # self.searched += 1
                 # if self.searched >= self.init_size-1:
                 #     break
-            print("Finished")
         return (titles,songs)
 
     # async def _search_playlist(self, server, name, filter):
