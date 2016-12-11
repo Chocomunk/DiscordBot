@@ -258,7 +258,7 @@ class CachedThreadPoolExecutor(ThreadPoolExecutor):
 
     def submit(self, fn, *args, **extra):
         if self._work_queue.qsize() > 0:
-            print('increasing pool size from %d to %d' % (self._max_workers, self._max_workers+1))
+            # print('increasing pool size from %d to %d' % (self._max_workers, self._max_workers+1))
             self._max_workers +=1
 
         return super(CachedThreadPoolExecutor, self).submit(fn, *args, **extra)
