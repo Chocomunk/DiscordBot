@@ -48,7 +48,8 @@ youtube_dl_options = {
     'quiet': True,
     'no_warnings': True,
     'outtmpl': "data/audio/cache/%(id)s",
-    'default_search': 'auto'
+    'default_search': 'auto',
+    'extract_flat' : True
 }
 
 
@@ -230,9 +231,11 @@ class Searcher(threading.Thread):
 
     def run(self):
         search_res = self.search(self.search_set)
+        print("finished search\n")
         self.output_titles = search_res[0]
         self.output_songs = search_res[1]
         self.done.set()
+        print("Search done\n")
 
 
     def search(self, search_set):
@@ -287,7 +290,8 @@ class Searcher(threading.Thread):
 
 class Downloader(threading.Thread):
     def __init__(self, url, max_duration=None, download=False,
-                 cache_path="data/audio/cache", *args, **kwargs):
+                 cache_path="data/audio/cache", filter=None, 
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.max_duration = max_duration
@@ -297,6 +301,7 @@ class Downloader(threading.Thread):
         self._download = download
         self.hit_max_length = threading.Event()
         self._yt = None
+        self.filter = filter
 
     def run(self):
         try:
@@ -326,19 +331,20 @@ class Downloader(threading.Thread):
 
     def get_info(self):
         if self._yt is None:
-            self._yt = youtube_dl.YoutubeDL(youtube_dl_options)
+            yt_opts = copy.deepcopy(youtube_dl_options)
+            yt_opts['matchtitle'] = self.filter
+            self._yt = youtube_dl.YoutubeDL(yt_opts)
         if "[SEARCH:]" not in self.url:
-            video = self._yt.extract_info(self.url, download=False,
-                                          process=False)
+            video = self._yt.extract_info(self.url, download=False)
         else:
             self.url = self.url[9:]
             yt_id = self._yt.extract_info(
                 self.url, download=False)["entries"][0]["id"]
             # Should handle errors here ^
             self.url = "https://youtube.com/watch?v={}".format(yt_id)
-            video = self._yt.extract_info(self.url, download=False,
-                                          process=False)
+            video = self._yt.extract_info(self.url, download=False)
         self.song = Song(**video)
+        print("finished download")
 
 
 class Audio:
@@ -1600,28 +1606,37 @@ class Audio:
         playlist = self._load_playlist(
             server, name, local=self._playlist_exists_local(server, name))
 
+        filt = SearchFilter(" ".join(filter), self.playlist_filter[server.id])
+
         print("starting download")
-        d = Downloader(playlist.url)
+        d = Downloader(playlist.url, filter=filt.regex)
         d.start()
 
         while d.is_alive():
             await asyncio.sleep(0.5)
-        print("finished download")
+        print("finished download async")
 
-        s = Searcher(CachedThreadPoolExecutor(), filter, self.playlist_filter[server.id], list(d.song.entries))
-        s.start()
+        # s = Searcher(CachedThreadPoolExecutor(), filter, self.playlist_filter[server.id], list(d.song.entries))
+        # s.start()
 
-        print("starting search")
-        while s.is_alive():
-            await asyncio.sleep(0.5)
-        print("finished search\n")
+        # print("starting search")
+        # while s.is_alive():
+        #     await asyncio.sleep(0.5)
+        # print("finished search async\n")
 
         # for entry in d.song.entries:
         #     if(filt.passes({'title|song|name': entry['title']})):
         #         titles.append(entry['title'])
         #         songs.append("https://www.youtube.com/watch?v={}".format(entry['id']))
-                
-        return (s.output_titles,s.output_songs)
+         
+        titles = []
+        songs = []
+        for entry in d.song.entries:
+            titles.append(entry['title'])
+            songs.append("https://www.youtube.com/watch?v={}".format(entry['id']))
+
+        # return (s.output_titles,s.output_songs)
+        return (titles,songs)
     # @playlist_contained.command(name="load", pass_context=True)
     # async def contained_load(self, ctx, name):
     #     """Loads a playlist for applying commands"""
@@ -1655,7 +1670,7 @@ class Audio:
             await self.bot.say("Gathering information... ")
 
             songlist = await self._search_playlist(server, name, filter)
-            print("Song search list enumerated")
+            print("Song search list enumerated\n")
             if(len(songlist[0]) > 0):
                 msg = "```Songs:\n"
                 count = 0
