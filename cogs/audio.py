@@ -344,7 +344,6 @@ class Downloader(threading.Thread):
             self.url = "https://youtube.com/watch?v={}".format(yt_id)
             video = self._yt.extract_info(self.url, download=False)
         self.song = Song(**video)
-        print("finished download")
 
 
 class Audio:
