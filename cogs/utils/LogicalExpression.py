@@ -109,4 +109,4 @@ class LogicalExpression:
                     elif s is '|':
                         # stack.append('(?=.*({0}|{1}))'.format(p1,p2))
                         stack.append('({0}|{1})'.format(p1,p2))
-        return r'^(?=.*({0})).*$'.format(stack.pop())
+        return r'(?=.*({0}))'.format(stack.pop())

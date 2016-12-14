@@ -4,7 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 import os
 from random import shuffle, choice
-from cogs.utils.dataIO import dataIO
+from cogs.utils.dataIO import *
 from cogs.utils import checks
 from cogs.utils.chat_formatting import pagify
 from urllib.parse import urlparse
@@ -341,7 +341,7 @@ class Searcher(threading.Thread):
 class Downloader(threading.Thread):
     def __init__(self, url, max_duration=None, download=False,
                  cache_path="data/audio/cache", filter=None, 
-                 *args, **kwargs):
+                 filter_title=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.max_duration = max_duration
@@ -352,6 +352,7 @@ class Downloader(threading.Thread):
         self.hit_max_length = threading.Event()
         self._yt = None
         self.filter = filter
+        self.filter_title = filter_title
 
     def run(self):
         try:
@@ -382,7 +383,10 @@ class Downloader(threading.Thread):
     def get_info(self):
         if self._yt is None:
             yt_opts = copy.deepcopy(youtube_dl_options)
-            yt_opts['matchtitle'] = self.filter
+            if self.filter:
+                yt_opts['match_filter'] = self.filter
+            if self.filter_title:
+                yt_opts['matchtitle'] = self.filter_title
             self._yt = youtube_dl.YoutubeDL(yt_opts)
         if "[SEARCH:]" not in self.url:
             video = self._yt.extract_info(self.url, download=False)
@@ -1793,7 +1797,7 @@ class Audio:
         filt = SearchFilter(" ".join(filter), self.playlist_filter[server.id])
 
         print("starting download")
-        d = Downloader(playlist.url, filter=filt.regex)
+        d = Downloader(playlist.url, filter=filt.filter)
         d.start()
 
         while d.is_alive():
@@ -2730,13 +2734,12 @@ def check_files():
             for key in default.keys():
                 if key not in current.keys():
                     current[key] = default[key]
-                    print(
-                        "Adding " + str(key) + " field to audio settings.json")
+                    print("Adding " + str(key) + " field to audio settings.json")
             dataIO.save_json(settings_path, current)
-    dataIO.save_json(settings_path, current)
     if not dataIO.is_valid_json(playlist_filter):
         print("Creating default playlist_filter.json...")
         dataIO.save_json(playlist_filter, {})
+        dataIO.save_json(settings_path, current)
 
 def verify_ffmpeg_avconv():
     try:
