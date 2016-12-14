@@ -22,9 +22,9 @@ GOTO loopstart
 
 ::As a last resort, attempts to start whatever Python there is
 :lastattempt
-python.exe --version > NUL 2>&1
+python3.exe --version > NUL 2>&1
 IF %ERRORLEVEL% NEQ 0 GOTO message
-python.exe red.py
+python3.exe red.py
 timeout 3
 GOTO loopstart
 

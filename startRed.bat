@@ -5,25 +5,25 @@ echo.
 pushd %~dp0
 
 ::Attempts to start py launcher without relying on PATH
-%SYSTEMROOT%\py.exe --version > NUL 2>&1
+%SYSTEMROOT%\python3 --version > NUL 2>&1
 IF %ERRORLEVEL% NEQ 0 GOTO attempt
-%SYSTEMROOT%\py.exe -3.5 red.py
+%SYSTEMROOT%\python3 red.py
 PAUSE
 GOTO end
 
 ::Attempts to start py launcher by relying on PATH
 :attempt
-py.exe --version > NUL 2>&1
+python3 --version > NUL 2>&1
 IF %ERRORLEVEL% NEQ 0 GOTO lastattempt
-py.exe -3.5 red.py
+python3 red.py
 PAUSE
 GOTO end
 
 ::As a last resort, attempts to start whatever Python there is
 :lastattempt
-python.exe --version > NUL 2>&1
+python3 --version > NUL 2>&1
 IF %ERRORLEVEL% NEQ 0 GOTO message
-python.exe red.py
+python3 red.py
 PAUSE
 GOTO end
 
