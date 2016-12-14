@@ -147,8 +147,32 @@ class SearchFilter:
             result = eval(self.expr.format(*comp))
             return result
 
+    def filter(self, info_dict):
+        if self.expr == "":
+            return True
+        else:
+            template = '[{0}: {1}] '
+            inp = ''
+            for k,v in info_dict.items():
+                inp += template.format(k,v)
+            mobj = re.match(self.regex, inp, flags=re.IGNORECASE)
+            if mobj:
+                return None
+            else:
+                return 'False match'
+
     @property
+    def regex_title(self):
+        ex = self._regex(self.expr)
+        res = ex.format(*[i[1] for i in self.filters])
+        return '^{0}.*$'.format(res)
+
+    @property 
     def regex(self):
-        logx = LogicalExpression(self.expr)
-        ex = logx.regex
-        return ex.format(*[i[1] for i in self.filters])
+        ex = self._regex(self.expr)
+        res = ex.format(*['\[{0}:.*(?=.*({1})).*?\]'.format(i,j) for i,j in self.filters])
+        return '^{0}.*$'.format(res)
+
+    def _regex(self, expr):
+        logx = LogicalExpression(expr)
+        return logx.regex
