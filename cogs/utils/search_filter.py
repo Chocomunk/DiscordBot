@@ -136,31 +136,15 @@ class SearchFilter:
                     v_f = SearchFilter(f[1], self.custom_filters)
                     for k,v in inp.items():
                         res = res or (k_f.passes({'args':k}) and v_f.passes({'args':v}))
-                        print(k)
                         if res:
-                            print("YEEAA")
                             break
                 else:
                     for i in inp:
                         res = res or (f[1].lower() in inp[i].lower())
-                        print(inp[i])
-                        # r = ('^'+SearchFilter(f[1], self.custom_filters).regex+'.*$')
-                        # print(r)
-                        # res = res or re.match(r, inp[i].lower())
-                        if res:
-                            break
-                print(res)
-                comp.append(res)
-            result = eval(self.expr.format(*comp))
-            # print(comp)
-            if result:
-                return None
-            else:
-                return 10
 
     def filter(self, info_dict):
         if self.expr == "":
-            return None
+            return False
         else:
             template = '[{0}: {1}] '
             inp = ''
@@ -187,4 +171,3 @@ class SearchFilter:
     def _regex(self, expr):
         logx = LogicalExpression(expr)
         return logx.regex
-

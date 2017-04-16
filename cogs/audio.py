@@ -8,6 +8,7 @@ from cogs.utils.dataIO import *
 from cogs.utils import checks
 from cogs.utils.chat_formatting import pagify
 from urllib.parse import urlparse
+from cogs.utils.search_filter import *
 from __main__ import send_cmd_help, settings
 from json import JSONDecodeError
 from cogs.utils.search_filter import SearchFilter

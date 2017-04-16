@@ -14,9 +14,9 @@ GOTO loopstart
 
 ::Attempts to start py launcher by relying on PATH
 :attempt
-py.exe --version > NUL 2>&1
+python3 --version > NUL 2>&1
 IF %ERRORLEVEL% NEQ 0 GOTO lastattempt
-py.exe -3.5 red.py
+python3 red.py
 timeout 3
 GOTO loopstart
 

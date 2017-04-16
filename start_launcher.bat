@@ -1,5 +1,6 @@
 @echo off
 chcp 65001
+
 echo.
 pushd %~dp0
 

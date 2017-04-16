@@ -49,7 +49,6 @@ Red - A multifunction Discord bot by Twentysix
 Edited by Alvin On for personal and private use
 """
 
-
 class Bot(commands.Bot):
     def __init__(self, *args, **kwargs):
 
@@ -227,7 +226,6 @@ class Bot(commands.Bot):
 
         response = self.loop.run_in_executor(None, install)
         return await asyncio.wait_for(response, timeout=timeout)
-
 
 class Formatter(commands.HelpFormatter):
     def __init__(self, *args, **kwargs):
