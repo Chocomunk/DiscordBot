@@ -39,6 +39,9 @@ class LogicalExpression:
         return operators[op1] >= operators[op2]
 
     def infix2RPN(self, expr):
+        if not expr or expr is '':
+            return ''
+
         output = ''
         stack = deque()
 
@@ -73,6 +76,9 @@ class LogicalExpression:
         return output
 
     def RPN2Regex(self, expr):
+        if not expr or expr is '':
+            return r'[\s\S]*'
+
         stack = deque()
 
         for s in expr.split():

@@ -20,7 +20,7 @@ class InvalidIsolatorStructure(InvalidSearch):
 
 
 class SearchFilter:
-    
+
     def __init__(self, expression: str, custom_filters):
         self.custom_filters = custom_filters
         self.expr = self.replace_custom_filters(expression, custom_filters)
@@ -32,7 +32,7 @@ class SearchFilter:
             self.expr = self.expr.replace(i[0], " $$#%^# ")
         self.expr = self.expr.strip().replace('[', '(').replace(']',')').replace('{','(').replace('}',')').replace('$$#%^#','{:}')
         self.expr = self.expr.format(*['{'+'{}'.format(i)+'}' for i in range(len(filts))])
-    
+
     def get_filters(self, expr:str):
         filters = []
         curr_filt = ''
@@ -111,7 +111,7 @@ class SearchFilter:
                 except IndexError:
                     print(s)
             else:
-                filters.append((None, s[0]))
+                filters.append(('title', s[0]))
         return filters
 
     def replace_custom_filters(self, expr: str, custom_filters):
@@ -131,25 +131,36 @@ class SearchFilter:
             comp = []
             for f in self.filters:
                 res = False
-                if f[0]!=None:
+                if f[0] and f[0] is not 'title':
                     k_f = SearchFilter(f[0], self.custom_filters)
                     v_f = SearchFilter(f[1], self.custom_filters)
                     for k,v in inp.items():
-                        res = res or (k_f.passes({'arg':k}) and v_f.passes({'arg':v}))
+                        res = res or (k_f.passes({'args':k}) and v_f.passes({'args':v}))
+                        print(k)
                         if res:
+                            print("YEEAA")
                             break
                 else:
                     for i in inp:
                         res = res or (f[1].lower() in inp[i].lower())
+                        print(inp[i])
+                        # r = ('^'+SearchFilter(f[1], self.custom_filters).regex+'.*$')
+                        # print(r)
+                        # res = res or re.match(r, inp[i].lower())
                         if res:
                             break
+                print(res)
                 comp.append(res)
             result = eval(self.expr.format(*comp))
-            return result
+            # print(comp)
+            if result:
+                return None
+            else:
+                return 10
 
     def filter(self, info_dict):
         if self.expr == "":
-            return True
+            return None
         else:
             template = '[{0}: {1}] '
             inp = ''
@@ -167,7 +178,7 @@ class SearchFilter:
         res = ex.format(*[i[1] for i in self.filters])
         return '^{0}.*$'.format(res)
 
-    @property 
+    @property
     def regex(self):
         ex = self._regex(self.expr)
         res = ex.format(*['\[{0}:.*(?=.*({1})).*?\]'.format(i,j) for i,j in self.filters])
