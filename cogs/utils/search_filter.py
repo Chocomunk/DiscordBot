@@ -144,7 +144,7 @@ class SearchFilter:
 
     def filter(self, info_dict):
         if self.expr == "":
-            return False
+            return None
         else:
             template = '[{0}: {1}] '
             inp = ''
